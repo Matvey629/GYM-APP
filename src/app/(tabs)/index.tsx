@@ -32,7 +32,7 @@ export default function HomeScreen() {
       }
     }
   }
-  const program = data.programs[0];
+  const program = data.programs[data.programs.length - 1];
   const nextDay = program?.days[completed.filter((item) => item.programId === program.id).length % (program.days.length || 1)];
   const start = (programId?: string) => {
     updateData((current) => startWorkoutData(current, programId));

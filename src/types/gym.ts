@@ -36,6 +36,8 @@ export type ProgramExercise = {
   repsMin: number;
   repsMax: number;
   restSeconds: number;
+  restLabel?: string;
+  rir?: string;
 };
 
 export type ProgramDay = {
