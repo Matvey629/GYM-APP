@@ -36,14 +36,33 @@ export function createWorkoutFromDay(program: WorkoutProgram | null, day: Progra
 }
 
 export function startWorkoutData(data: GymAppData, programId?: string): GymAppData {
-  if (data.activeWorkout) return data;
-  const program = data.programs.find((item) => item.id === programId) ?? data.programs[0] ?? null;
+  if (data.activeWorkout && (!programId || data.activeWorkout.programId === programId)) return data;
+  const program = programId
+    ? data.programs.find((item) => item.id === programId) ?? null
+    : data.programs[0] ?? null;
+  if (programId && !program) return data;
+  const pausedWorkout = program
+    ? data.workouts.find((item) => item.programId === program.id && item.status === 'paused')
+    : undefined;
+  if (pausedWorkout) {
+    return {
+      ...data,
+      workouts: [
+        ...data.workouts.filter((item) => item.id !== pausedWorkout.id),
+        ...(data.activeWorkout ? [{ ...data.activeWorkout, status: 'paused' as const }] : []),
+      ],
+      activeWorkout: { ...pausedWorkout, status: 'active' },
+    };
+  }
   let day = null;
   if (program) {
     const completedInProgram = data.workouts.filter((item) => item.programId === program.id && item.status === 'completed').length;
     day = program.days[completedInProgram % Math.max(program.days.length, 1)] ?? program.days[0] ?? null;
   }
-  return { ...data, activeWorkout: createWorkoutFromDay(program, day, data.workouts) };
+  const workouts = data.activeWorkout
+    ? [...data.workouts, { ...data.activeWorkout, status: 'paused' as const }]
+    : data.workouts;
+  return { ...data, workouts, activeWorkout: createWorkoutFromDay(program, day, data.workouts) };
 }
 
 export function finishWorkoutData(data: GymAppData): GymAppData {

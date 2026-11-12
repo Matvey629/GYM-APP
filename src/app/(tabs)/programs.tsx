@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton, AppCard, AppColors, AppScreen, ChoiceChips, Field, PageHeading } from '@/components/ui/app-screen';
 import { useAppData } from '@/features/app-data/app-data-context';
 import { EXERCISES } from '@/features/exercises/catalog';
+import { createWorkbookProgram } from '@/features/programs/workbook-program';
 import { startWorkoutData } from '@/features/workouts/workout-logic';
 import { createId } from '@/lib/ids';
 import type { ProgramExercise, WorkoutProgram } from '@/types/gym';
@@ -29,8 +30,10 @@ export default function ProgramsScreen() {
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
   const [exerciseSettings, setExerciseSettings] = useState<Record<string, ProgramExercise>>({});
   const [error, setError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const goal = data.profile?.goal ?? 'fitness';
   const reps = goal === 'strength' ? [5, 6] : goal === 'weight-loss' ? [10, 15] : [8, 12];
+  const workbookProgramAdded = data.programs.some((program) => program.name === 'Моя программа · черновик из таблицы');
 
   const createProgram = () => {
     if (!name.trim() || selectedExercises.length === 0 || schedule.length !== daysPerWeek) {
@@ -60,6 +63,7 @@ export default function ProgramsScreen() {
 
   return (
     <AppScreen>
+      {!creating && !workbookProgramAdded ? <AppButton title="Добавить мой черновик из таблицы" secondary onPress={() => updateData((current) => ({ ...current, programs: [...current.programs, createWorkbookProgram()] }))} /> : null}
       <PageHeading eyebrow="Планирование" title="Мои программы" subtitle="Выбирай готовый план или собери собственный из упражнений." />
       {!creating ? <AppButton title="＋  Создать программу" onPress={() => setCreating(true)} /> : null}
       {!creating && data.profile?.limitations ? <AppCard style={styles.notice}><Text style={styles.noticeText}>Проверь список упражнений программы с учётом ограничения: {data.profile.limitations}</Text></AppCard> : null}
@@ -104,8 +108,8 @@ export default function ProgramsScreen() {
       {data.programs.map((program) => (
         <AppCard key={program.id} style={styles.programCard}>
           <View style={styles.programTop}><View style={styles.programMark}><Text style={styles.programMarkText}>↗</Text></View><View style={{ flex: 1 }}><Text style={styles.programName}>{program.name}</Text><Text style={styles.programDescription}>{program.description}</Text></View></View>
-          {program.days.map((day, index) => <View key={`${program.id}-${index}`} style={styles.dayRow}><Text style={styles.dayName}>{WEEKDAY_OPTIONS[day.weekday]?.label ?? ''} · {day.title}</Text><Text style={styles.dayMeta}>{day.exercises.map((item) => `${EXERCISES.find((exercise) => exercise.id === item.exerciseId)?.name ?? 'Упражнение'} · ${item.sets}×${item.repsMin}–${item.repsMax} · отдых ${item.restSeconds} сек`).join('\n')}</Text></View>)}
-          <AppButton title="Начать следующую тренировку" compact onPress={() => startProgram(program.id)} />
+          {program.days.map((day, index) => <View key={`${program.id}-${index}`} style={styles.dayRow}><Text style={styles.dayName}>{WEEKDAY_OPTIONS[day.weekday]?.label ?? ''} · {day.title}</Text><Text style={styles.dayMeta}>{day.exercises.map((item) => `${EXERCISES.find((exercise) => exercise.id === item.exerciseId)?.name ?? 'Упражнение'} · ${item.sets}×${item.repsMin}–${item.repsMax} · отдых ${item.restLabel ?? `${item.restSeconds} сек`}${item.rir ? ` · RIR ${item.rir}` : ''}`).join('\n')}</Text></View>)}
+          {confirmDeleteId === program.id ? <View style={styles.deleteConfirmation}><Text style={styles.deleteText}>Удалить этот план? История завершённых тренировок сохранится.</Text><View style={styles.formActions}><AppButton title="Оставить" secondary compact onPress={() => setConfirmDeleteId(null)} /><AppButton title="Удалить план" compact onPress={() => { updateData((current) => ({ ...current, programs: current.programs.filter((item) => item.id !== program.id) })); setConfirmDeleteId(null); }} /></View></View> : <View style={styles.programActions}><AppButton title="Начать тренировку" compact onPress={() => startProgram(program.id)} /><Pressable accessibilityRole="button" onPress={() => setConfirmDeleteId(program.id)} style={styles.deleteButton}><Text style={styles.deleteButtonText}>Удалить план</Text></Pressable></View>}
         </AppCard>
       ))}
       {data.programs.length === 0 && !creating ? <AppCard><Text style={styles.empty}>После анкеты здесь появится подходящий стартовый план.</Text></AppCard> : null}
@@ -137,6 +141,11 @@ const styles = StyleSheet.create({
   programMarkText: { color: '#678D42', fontSize: 20, fontWeight: '800' },
   programName: { color: AppColors.text, fontSize: 14, fontWeight: '800' },
   programDescription: { color: AppColors.muted, fontSize: 10, marginTop: 3 },
+  programActions: { gap: 8 },
+  deleteButton: { alignItems: 'center', paddingVertical: 8 },
+  deleteButtonText: { color: AppColors.danger, fontSize: 11, fontWeight: '700' },
+  deleteConfirmation: { gap: 8, padding: 10, borderRadius: 12, backgroundColor: '#FFF4E9' },
+  deleteText: { color: AppColors.text, fontSize: 11, lineHeight: 16 },
   dayRow: { paddingVertical: 7, borderTopWidth: 1, borderTopColor: '#EEF0EC', gap: 4 },
   dayName: { color: AppColors.text, fontSize: 11, fontWeight: '800' },
   dayMeta: { color: AppColors.muted, fontSize: 10, lineHeight: 15 },
